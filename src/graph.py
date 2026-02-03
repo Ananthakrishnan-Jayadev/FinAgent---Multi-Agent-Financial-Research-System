@@ -307,14 +307,8 @@ def run_research(query: str, interrupt: bool = False) -> dict:
     # Thread ID for checkpointing
     config = {"configurable": {"thread_id": "test-run-1"}}
     
-    # Run the graph
-    final_state = None
-    for state in graph.stream(initial_state, config):
-        # Get the node name and state update
-        for node_name, state_update in state.items():
-            current_agent = state_update.get("current_agent", node_name)
-            print(f"  → {current_agent}")
-        final_state = state_update
+    # Run the graph and get final state
+    final_state = graph.invoke(initial_state, config)
     
     return final_state
 
@@ -344,19 +338,46 @@ if __name__ == "__main__":
     print(f"\nQuery: {query}\n")
     print("Pipeline execution:")
     
-    result = run_research(query, interrupt=False)
+    # Stream for progress, then get final state
+    config = {"configurable": {"thread_id": "test-run-2"}}
+    initial_state = {
+        "query": query,
+        "company": None,
+        "query_complexity": "complex",
+        "research_plan": [],
+        "raw_findings": [],
+        "financial_data": None,
+        "analysis": None,
+        "report_draft": None,
+        "quality_review": None,
+        "risk_assessment": None,
+        "revision_count": 0,
+        "human_approved": None,
+        "current_agent": "starting",
+        "final_report": None,
+        "errors": []
+    }
+    
+    for state in graph.stream(initial_state, config):
+        for node_name, state_update in state.items():
+            current_agent = state_update.get("current_agent", node_name)
+            print(f"  → {current_agent}")
+    
+    # Get the full final state
+    final_state = graph.get_state(config).values
     
     print("\n" + "=" * 60)
     print("Results Summary")
     print("=" * 60)
     
-    if result:
-        print(f"Company: {result.get('company')}")
-        print(f"Complexity: {result.get('query_complexity')}")
-        print(f"Revision cycles: {result.get('revision_count')}")
-        print(f"Errors: {result.get('errors', [])}")
+    if final_state:
+        print(f"Company: {final_state.get('company')}")
+        print(f"Complexity: {final_state.get('query_complexity')}")
+        print(f"Revision cycles: {final_state.get('revision_count')}")
+        print(f"Quality Score: {final_state.get('quality_review', {}).get('overall_score')}/10")
+        print(f"Errors: {final_state.get('errors', [])}")
         
-        final_report = result.get('final_report')
+        final_report = final_state.get('final_report')
         if final_report:
             print(f"\nFinal report length: {len(final_report)} characters")
             print("\nReport preview (first 500 chars):")
